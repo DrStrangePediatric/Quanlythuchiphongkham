@@ -4,11 +4,14 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, amount, description, staff } = body;
+    const { stt, type, amount, description, staff } = body;
 
     if (!type || !amount || !description || !staff) {
-      return NextResponse.json({ error: 'Vui lòng điền đầy đủ thông tin' }, { status: 400 });
+      return NextResponse.json({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' }, { status: 400 });
     }
+
+    // Tiền nhập vào là nghìn đồng, nhân với 1000 để ra số thật
+    const realAmount = parseInt(amount) * 1000;
 
     // 1. Prepare Google Sheets Auth
     const auth = new google.auth.GoogleAuth({
@@ -32,24 +35,24 @@ export async function POST(request: Request) {
     const timeString = now.toLocaleTimeString('vi-VN');
 
     // 2. Save to Google Sheets
-    // Assuming the sheet has columns: Date, Time, Type, Amount, Description, Staff
+    // Columns: STT, Ngày, Giờ, Loại, Số tiền, Nội dung, Nhân viên
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     
     if (spreadsheetId && process.env.GOOGLE_CLIENT_EMAIL) {
       try {
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: 'Trang tính 1!A:F', // Adjust if your sheet name is different
+          range: 'Trang tính 1!A:G', // Adjust if your sheet name is different
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [
-              [dateString, timeString, type, amount, description, staff],
+              [stt, dateString, timeString, type, realAmount, description, staff],
             ],
           },
         });
       } catch (sheetError) {
         console.error('Google Sheets Error:', sheetError);
-        // Continue to send Telegram message even if sheet fails, but ideally both should work
+        // Continue to send Telegram message even if sheet fails
       }
     }
 
@@ -58,10 +61,11 @@ export async function POST(request: Request) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (botToken && chatId) {
+      const sttText = stt ? `\n🏷 STT: ${stt}` : '';
       const message = `
-🏥 *Thông báo ${type} mới*
+🏥 *Thông báo ${type} mới*${sttText}
 ⏰ Thời gian: ${dateString} ${timeString}
-💰 Số tiền: *${parseInt(amount).toLocaleString('vi-VN')} VNĐ*
+💰 Số tiền: *${realAmount.toLocaleString('vi-VN')} VNĐ*
 📝 Nội dung: ${description}
 👤 Nhân viên: ${staff}
       `;
