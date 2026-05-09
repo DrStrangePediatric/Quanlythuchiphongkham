@@ -25,10 +25,21 @@ export async function GET() {
       return NextResponse.json({ error: 'Chưa cấu hình Google Sheet' }, { status: 500 });
     }
 
+    let sheetName = 'Trang tính 1';
+    try {
+      const meta = await sheets.spreadsheets.get({ spreadsheetId });
+      sheetName = meta.data.sheets?.[0]?.properties?.title || 'Trang tính 1';
+    } catch (metaErr: any) {
+      if (metaErr.message?.includes('permission') || metaErr.code === 403) {
+        return NextResponse.json({ error: 'Lỗi: Bot chưa được share quyền truy cập Google Sheet!' }, { status: 403 });
+      }
+      return NextResponse.json({ error: 'Lỗi không tìm thấy file Google Sheet' }, { status: 404 });
+    }
+
     // Đọc toàn bộ dữ liệu từ Sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: 'Trang tính 1!A:E', // Đọc cột Ngày (A) đến Cột Số Tiền (E)
+      range: `'${sheetName}'!A:E`, // Đọc cột Ngày (A) đến Cột Số Tiền (E)
     });
 
     const rows = response.data.values || [];
@@ -88,9 +99,12 @@ export async function POST(request: Request) {
     // 1. Lưu dòng TỔNG KẾT vào Google Sheet
     if (spreadsheetId) {
       try {
+        const meta = await sheets.spreadsheets.get({ spreadsheetId });
+        const sheetName = meta.data.sheets?.[0]?.properties?.title || 'Trang tính 1';
+
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: 'Trang tính 1!A:G',
+          range: `'${sheetName}'!A:G`,
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [

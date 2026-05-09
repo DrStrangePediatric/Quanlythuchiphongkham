@@ -40,9 +40,12 @@ export async function POST(request: Request) {
     
     if (spreadsheetId && process.env.GOOGLE_CLIENT_EMAIL) {
       try {
+        const meta = await sheets.spreadsheets.get({ spreadsheetId });
+        const sheetName = meta.data.sheets?.[0]?.properties?.title || 'Trang tính 1';
+
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: 'Trang tính 1!A:G', // Adjust if your sheet name is different
+          range: `'${sheetName}'!A:G`, // Adjust if your sheet name is different
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [
