@@ -6,7 +6,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { stt, type, shift, paymentMethod, amount, description, staff } = body;
 
-    if (!type || !shift || !paymentMethod || !amount || !description || !staff) {
+    if (!type || !shift || !paymentMethod || !amount || !staff) {
       return NextResponse.json({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' }, { status: 400 });
     }
 
@@ -29,10 +29,17 @@ export async function POST(request: Request) {
 
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // Format current date and time
+    // Format current date and time in GMT+7 (Asia/Ho_Chi_Minh)
     const now = new Date();
-    const dateString = now.toLocaleDateString('vi-VN');
-    const timeString = now.toLocaleTimeString('vi-VN');
+    const dateString = new Intl.DateTimeFormat('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric', month: '2-digit', day: '2-digit' 
+    }).format(now);
+    
+    const timeString = new Intl.DateTimeFormat('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).format(now);
 
     // 2. Save to Google Sheets
     // Columns: STT, Ngày, Giờ, Loại, Số tiền, Nội dung, Nhân viên
@@ -71,7 +78,7 @@ export async function POST(request: Request) {
 🏷 Ca làm việc: ${shift}
 💰 Số tiền: *${realAmount.toLocaleString('vi-VN')} VNĐ*
 💳 Hình thức: ${paymentMethod}
-📝 Nội dung: ${description}
+📝 Nội dung: ${description || 'Không có ghi chú'}
 👤 Nhân viên: ${staff}
       `;
 

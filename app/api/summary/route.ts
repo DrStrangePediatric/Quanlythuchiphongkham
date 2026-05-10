@@ -128,8 +128,15 @@ export async function POST(request: Request) {
     const sheets = google.sheets({ version: 'v4', auth });
     
     const now = new Date();
-    const dateString = now.toLocaleDateString('vi-VN');
-    const timeString = now.toLocaleTimeString('vi-VN');
+    const dateString = new Intl.DateTimeFormat('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric', month: '2-digit', day: '2-digit' 
+    }).format(now);
+    
+    const timeString = new Intl.DateTimeFormat('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).format(now);
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     

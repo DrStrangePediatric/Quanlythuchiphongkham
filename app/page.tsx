@@ -240,8 +240,8 @@ export default function Home() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="description">Lý do / Nội dung</label>
-            <textarea id="description" name="description" className="form-control" placeholder="Khám bệnh cho bé..." required></textarea>
+            <label htmlFor="description">Lý do / Nội dung (Không bắt buộc)</label>
+            <textarea id="description" name="description" className="form-control" placeholder="Ghi chú thêm nếu cần..."></textarea>
           </div>
 
           <div className="form-group">
