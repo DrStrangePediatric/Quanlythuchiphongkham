@@ -182,9 +182,9 @@ export default function Home() {
     setMessage(null);
     
     const salaryNum = parseInt(salary) || 0;
-    const totalThu = summaryData.thuTM + summaryData.thuCK;
-    const totalChi = summaryData.chiTM + summaryData.chiCK;
-    const remaining = totalThu - totalChi - (salaryNum * 1000);
+    const remainingTM = summaryData.thuTM - summaryData.chiTM - (salaryNum * 1000);
+    const remainingCK = summaryData.thuCK - summaryData.chiCK;
+    const remaining = remainingTM + remainingCK;
 
     const formatToVN = (d: string) => d.split('-').reverse().join('/');
 
@@ -448,11 +448,16 @@ export default function Home() {
                   />
                 </div>
 
-                <div className="summary-row total">
-                  <span>TỔNG CÒN LẠI:</span>
-                  <span>
-                    {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
-                  </span>
+                <div className="summary-row total" style={{ flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>TỔNG CÒN LẠI:</span>
+                    <span>
+                      {((summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000))).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 'normal', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                    (Tiền mặt: {(summaryData.thuTM - summaryData.chiTM - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ | Chuyển khoản: {(summaryData.thuCK - summaryData.chiCK).toLocaleString('vi-VN')} đ)
+                  </div>
                 </div>
               </div>
 

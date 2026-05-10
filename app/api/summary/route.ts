@@ -148,6 +148,8 @@ export async function POST(request: Request) {
 
         const totalThu = thuTM + thuCK;
         const totalChi = chiTM + chiCK;
+        const remainingTM = thuTM - chiTM - salary;
+        const remainingCK = thuCK - chiCK;
 
         await sheets.spreadsheets.values.append({
           spreadsheetId,
@@ -155,7 +157,7 @@ export async function POST(request: Request) {
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [
-              ['', dateString, timeString, '', 'TỔNG KẾT', '', `Thu: ${totalThu} | Chi: ${totalChi} | Lương: ${salary} | DƯ: ${remaining}`, 'HỆ THỐNG', ''],
+              ['', dateString, timeString, '', 'TỔNG KẾT', '', `Thu: ${totalThu} | Chi: ${totalChi} | Lương: ${salary} | DƯ: ${remaining} (TM: ${remainingTM}, CK: ${remainingCK})`, 'HỆ THỐNG', ''],
             ],
           },
         });
@@ -178,6 +180,8 @@ export async function POST(request: Request) {
 
       const totalThu = thuTM + thuCK;
       const totalChi = chiTM + chiCK;
+      const remainingTM = thuTM - chiTM - salary;
+      const remainingCK = thuCK - chiCK;
 
       const message = `
 📊 *${reportTitle}*
@@ -190,10 +194,11 @@ export async function POST(request: Request) {
    💵 Tiền mặt: ${chiTM.toLocaleString('vi-VN')}
    💳 Chuyển khoản: ${chiCK.toLocaleString('vi-VN')}
 
-💸 Lương NV: *${salary.toLocaleString('vi-VN')}*
+💸 Lương NV: *${salary.toLocaleString('vi-VN')}* (Trừ vào TM)
 --------------------------
 💰 *DƯ TRONG KÉT: ${remaining.toLocaleString('vi-VN')}*
-_(Chỉ là số dư tính toán trên phần mềm)_
+_(💵 Tiền mặt: ${remainingTM.toLocaleString('vi-VN')})_
+_(💳 Chuyển khoản: ${remainingCK.toLocaleString('vi-VN')})_
       `;
 
       try {
