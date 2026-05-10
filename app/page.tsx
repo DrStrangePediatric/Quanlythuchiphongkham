@@ -33,7 +33,7 @@ export default function Home() {
   const [summaryShift, setSummaryShift] = useState('Tất cả');
   const [salary, setSalary] = useState('');
 
-  const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
+  const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190];
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
