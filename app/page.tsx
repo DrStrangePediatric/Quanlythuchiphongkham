@@ -12,6 +12,8 @@ export default function Home() {
   const [shift, setShift] = useState('Sáng');
   const [isTransfer, setIsTransfer] = useState(false);
   const [amount, setAmount] = useState('');
+  const [selectedStaff, setSelectedStaff] = useState('Dương');
+  const [customStaff, setCustomStaff] = useState('');
   
   // Tổng kết state
   const [summaryData, setSummaryData] = useState<{
@@ -31,7 +33,7 @@ export default function Home() {
   const [summaryShift, setSummaryShift] = useState('Tất cả');
   const [salary, setSalary] = useState('');
 
-  const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+  const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -245,8 +247,38 @@ export default function Home() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="staff">Tên nhân viên nhập liệu</label>
-            <input type="text" id="staff" name="staff" className="form-control" placeholder="VD: Điều dưỡng B" required />
+            <label>Nhân viên nhập liệu</label>
+            <div className="radio-group" style={{ marginBottom: selectedStaff === 'Khác' ? '10px' : '0' }}>
+              {['Dương', 'Trúc', 'Kiều', 'Trinh', 'Khác'].map((name) => (
+                <label key={name} className="radio-label">
+                  <input 
+                    type="radio" 
+                    name="staff_radio" 
+                    value={name} 
+                    checked={selectedStaff === name}
+                    onChange={(e) => {
+                      setSelectedStaff(e.target.value);
+                      if (e.target.value !== 'Khác') setCustomStaff('');
+                    }} 
+                  /> {name}
+                </label>
+              ))}
+            </div>
+            
+            {selectedStaff === 'Khác' ? (
+              <input 
+                type="text" 
+                id="staff" 
+                name="staff" 
+                className="form-control" 
+                placeholder="Nhập tên nhân viên khác..." 
+                required 
+                value={customStaff}
+                onChange={(e) => setCustomStaff(e.target.value)}
+              />
+            ) : (
+              <input type="hidden" name="staff" value={selectedStaff} />
+            )}
           </div>
 
           <button type="submit" className="btn-submit" disabled={loading}>
