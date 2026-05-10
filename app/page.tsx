@@ -1,12 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'nhaplieu' | 'tongket'>('nhaplieu');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
+  // Auth state
+  const [authStatus, setAuthStatus] = useState<'none' | 'staff' | 'admin'>('none');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
   // Nhập liệu state
   const [type, setType] = useState('Thu');
   const [shift, setShift] = useState('Sáng');
@@ -20,10 +26,8 @@ export default function Home() {
     thuTM: number, thuCK: number, chiTM: number, chiCK: number
   } | null>(null);
   
-  // Lấy ngày hôm nay định dạng YYYY-MM-DD cho input type="date"
   const getTodayStr = () => {
     const d = new Date();
-    // Chỉnh múi giờ việt nam
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().split('T')[0];
   };
@@ -33,12 +37,64 @@ export default function Home() {
   const [summaryShift, setSummaryShift] = useState('Tất cả');
   const [salary, setSalary] = useState('');
 
+  // Biểu đồ state
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [chartDays, setChartDays] = useState('7');
+
   const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190];
+
+  useEffect(() => {
+    // Kiểm tra trạng thái đăng nhập đã lưu
+    const savedAuth = sessionStorage.getItem('authStatus') as 'staff' | 'admin' | null;
+    if (savedAuth) {
+      setAuthStatus(savedAuth);
+    }
+    setIsCheckingAuth(false);
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent, loginType: 'app' | 'admin') => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput, type: loginType })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        setAuthStatus(data.role);
+        sessionStorage.setItem('authStatus', data.role);
+        setPasswordInput('');
+        if (loginType === 'admin') {
+          setActiveTab('tongket');
+        }
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Mật khẩu sai' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Lỗi kết nối' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('authStatus');
+    setAuthStatus('none');
+    setSummaryData(null);
+    setChartData([]);
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+
+    const actualStaff = selectedStaff === 'Khác' ? customStaff : selectedStaff;
 
     const formData = new FormData(e.currentTarget);
     const data = {
@@ -48,7 +104,7 @@ export default function Home() {
       paymentMethod: isTransfer ? 'Chuyển khoản' : 'Tiền mặt',
       amount: formData.get('amount'), 
       description: formData.get('description'),
-      staff: formData.get('staff'),
+      staff: actualStaff,
     };
 
     try {
@@ -79,9 +135,7 @@ export default function Home() {
     setLoading(true);
     setMessage(null);
     try {
-      // Chuyển format YYYY-MM-DD sang DD/MM/YYYY để gửi API
       const formatToVN = (d: string) => d ? d.split('-').reverse().join('/') : '';
-      
       const query = new URLSearchParams({
         startDate: formatToVN(startDate),
         endDate: formatToVN(endDate),
@@ -103,9 +157,27 @@ export default function Home() {
     }
   };
 
+  const fetchChart = async () => {
+    try {
+      const res = await fetch(`/api/chart?days=${chartDays}`);
+      const data = await res.json();
+      if (res.ok) {
+        setChartData(data);
+      }
+    } catch (error) {
+      console.error('Lỗi lấy dữ liệu biểu đồ');
+    }
+  };
+
+  // Tự động load biểu đồ khi vào tab admin hoặc thay đổi số ngày
+  useEffect(() => {
+    if (authStatus === 'admin' && activeTab === 'tongket') {
+      fetchChart();
+    }
+  }, [authStatus, activeTab, chartDays]);
+
   const handleEndDay = async () => {
     if (!summaryData) return;
-    
     setLoading(true);
     setMessage(null);
     
@@ -146,11 +218,46 @@ export default function Home() {
     }
   };
 
+  if (isCheckingAuth) return null;
+
+  // Màn hình Đăng nhập App
+  if (authStatus === 'none') {
+    return (
+      <div className="container login-container">
+        <div className="lock-icon">🔒</div>
+        <div className="header">
+          <h1>Đăng Nhập</h1>
+          <p>Vui lòng nhập mật khẩu để vào phần mềm</p>
+        </div>
+        <form className="login-form" onSubmit={(e) => handleLogin(e, 'app')}>
+          <input 
+            type="password" 
+            className="form-control" 
+            placeholder="Mật khẩu App..." 
+            value={passwordInput}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            required
+          />
+          <button type="submit" className="btn-submit" disabled={loading}>
+            {loading ? 'Đang kiểm tra...' : 'Vào ứng dụng'}
+          </button>
+        </form>
+        {message && <div className={`message ${message.type}`} style={{width: '100%'}}>{message.text}</div>}
+      </div>
+    );
+  }
+
   return (
-    <div className="container">
-      <div className="header">
+    <div className="container" style={{ maxWidth: activeTab === 'tongket' ? '600px' : '500px' }}>
+      <div className="header" style={{ position: 'relative' }}>
         <h1>Quản Lý Thu Chi</h1>
         <p>Phòng Khám Nhi</p>
+        <button 
+          onClick={handleLogout}
+          style={{ position: 'absolute', right: 0, top: 0, background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}
+        >
+          Đăng xuất
+        </button>
       </div>
 
       <div className="tabs">
@@ -170,26 +277,15 @@ export default function Home() {
 
       {activeTab === 'nhaplieu' ? (
         <form onSubmit={handleSubmit}>
+          {/* Giao diện Nhập liệu giữ nguyên */}
           <div className="form-group">
             <label>Loại giao dịch</label>
             <div className="radio-group">
               <label className="radio-label">
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="Thu" 
-                  checked={type === 'Thu'}
-                  onChange={() => setType('Thu')} 
-                /> Thu
+                <input type="radio" value="Thu" checked={type === 'Thu'} onChange={() => setType('Thu')} /> Thu
               </label>
               <label className="radio-label">
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="Chi" 
-                  checked={type === 'Chi'}
-                  onChange={() => setType('Chi')}
-                /> Chi
+                <input type="radio" value="Chi" checked={type === 'Chi'} onChange={() => setType('Chi')} /> Chi
               </label>
             </div>
           </div>
@@ -216,7 +312,6 @@ export default function Home() {
 
           <div className="form-group">
             <label htmlFor="amount">Số tiền (Nghìn VNĐ)</label>
-            
             {type === 'Thu' && (
               <div className="quick-buttons">
                 {quickAmounts.map(val => (
@@ -226,13 +321,11 @@ export default function Home() {
                 ))}
               </div>
             )}
-            
             <input
               type="number" id="amount" name="amount" className="form-control"
               placeholder="VD: 70 (tương đương 70.000đ)" required min="0"
               value={amount} onChange={(e) => setAmount(e.target.value)}
             />
-
             <div className="checkbox-group">
               <label className="checkbox-label">
                 <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
@@ -286,80 +379,141 @@ export default function Home() {
           </button>
         </form>
       ) : (
+        // Tab Tổng Kết & Báo cáo
         <div>
-          <div className="grid-2">
-            <div className="form-group">
-              <label>Từ ngày</label>
-              <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          {authStatus !== 'admin' ? (
+            // Form yêu cầu mật khẩu Admin
+            <div className="login-container" style={{ minHeight: '30vh' }}>
+              <div className="lock-icon" style={{ fontSize: '32px' }}>🔐</div>
+              <p style={{ marginBottom: '20px', color: 'var(--text-secondary)', textAlign: 'center' }}>
+                Khu vực Quản lý. Vui lòng nhập mật khẩu Admin để xem Báo cáo và Biểu đồ.
+              </p>
+              <form className="login-form" onSubmit={(e) => handleLogin(e, 'admin')}>
+                <input 
+                  type="password" 
+                  className="form-control" 
+                  placeholder="Mật khẩu Admin..." 
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  required
+                />
+                <button type="submit" className="btn-submit" disabled={loading}>
+                  {loading ? 'Đang mở khóa...' : 'Mở khóa báo cáo'}
+                </button>
+              </form>
             </div>
-            <div className="form-group">
-              <label>Đến ngày</label>
-              <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Lọc theo Ca</label>
-            <select className="form-control" value={summaryShift} onChange={(e) => setSummaryShift(e.target.value)}>
-              <option value="Tất cả">Tất cả các ca</option>
-              <option value="Sáng">Ca Sáng</option>
-              <option value="Trưa">Ca Trưa</option>
-              <option value="Chiều">Ca Chiều</option>
-            </select>
-          </div>
-
-          <button className="btn-submit btn-fetch" onClick={fetchSummary} disabled={loading}>
-            {loading ? 'Đang tải...' : 'Lấy số liệu'}
-          </button>
-
-          {summaryData && (
+          ) : (
+            // Đã mở khóa Admin -> Hiển thị Báo cáo và Biểu đồ
             <>
-              <div className="summary-card">
-                <div className="summary-row">
-                  <span>Thu Tiền Mặt:</span>
-                  <span className="text-success">{(summaryData.thuTM).toLocaleString('vi-VN')} đ</span>
+              <div className="grid-2">
+                <div className="form-group">
+                  <label>Từ ngày</label>
+                  <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </div>
-                <div className="summary-row">
-                  <span>Thu Chuyển Khoản:</span>
-                  <span className="text-success">{(summaryData.thuCK).toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="summary-row" style={{marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
-                  <span>Chi Tiền Mặt:</span>
-                  <span className="text-danger">{(summaryData.chiTM).toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="summary-row">
-                  <span>Chi Chuyển Khoản:</span>
-                  <span className="text-danger">{(summaryData.chiCK).toLocaleString('vi-VN')} đ</span>
-                </div>
-                
-                <div className="form-group" style={{marginTop: '16px'}}>
-                  <label>Nhập Lương nhân viên (Nghìn VNĐ)</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="VD: 200 (tương đương 200.000đ)"
-                    value={salary}
-                    onChange={(e) => setSalary(e.target.value)}
-                  />
-                </div>
-
-                <div className="summary-row total">
-                  <span>TỔNG CÒN LẠI:</span>
-                  <span>
-                    {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
-                  </span>
+                <div className="form-group">
+                  <label>Đến ngày</label>
+                  <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                 </div>
               </div>
 
-              {startDate === endDate ? (
-                <button className="btn-submit btn-danger" onClick={handleEndDay} disabled={loading}>
-                  {loading ? 'Đang gửi...' : `Chốt sổ & Gửi Telegram (${summaryShift === 'Tất cả' ? 'Cả ngày' : 'Ca ' + summaryShift})`}
-                </button>
-              ) : (
-                <p style={{textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)'}}>
-                  * Chức năng Gửi Telegram chỉ khả dụng khi Tổng kết trong 1 ngày duy nhất.
-                </p>
+              <div className="form-group">
+                <label>Lọc theo Ca</label>
+                <select className="form-control" value={summaryShift} onChange={(e) => setSummaryShift(e.target.value)}>
+                  <option value="Tất cả">Tất cả các ca</option>
+                  <option value="Sáng">Ca Sáng</option>
+                  <option value="Trưa">Ca Trưa</option>
+                  <option value="Chiều">Ca Chiều</option>
+                </select>
+              </div>
+
+              <button className="btn-submit btn-fetch" onClick={fetchSummary} disabled={loading}>
+                {loading ? 'Đang tải...' : 'Lấy số liệu'}
+              </button>
+
+              {summaryData && (
+                <>
+                  <div className="summary-card">
+                    <div className="summary-row">
+                      <span>Thu Tiền Mặt:</span>
+                      <span className="text-success">{(summaryData.thuTM).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Thu Chuyển Khoản:</span>
+                      <span className="text-success">{(summaryData.thuCK).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    <div className="summary-row" style={{marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+                      <span>Chi Tiền Mặt:</span>
+                      <span className="text-danger">{(summaryData.chiTM).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    <div className="summary-row">
+                      <span>Chi Chuyển Khoản:</span>
+                      <span className="text-danger">{(summaryData.chiCK).toLocaleString('vi-VN')} đ</span>
+                    </div>
+                    
+                    <div className="form-group" style={{marginTop: '16px'}}>
+                      <label>Nhập Lương nhân viên (Nghìn VNĐ)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        placeholder="VD: 200 (tương đương 200.000đ)"
+                        value={salary}
+                        onChange={(e) => setSalary(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="summary-row total">
+                      <span>TỔNG CÒN LẠI:</span>
+                      <span>
+                        {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
+                      </span>
+                    </div>
+                  </div>
+
+                  {startDate === endDate ? (
+                    <button className="btn-submit btn-danger" onClick={handleEndDay} disabled={loading}>
+                      {loading ? 'Đang gửi...' : `Chốt sổ & Gửi Telegram (${summaryShift === 'Tất cả' ? 'Cả ngày' : 'Ca ' + summaryShift})`}
+                    </button>
+                  ) : (
+                    <p style={{textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)'}}>
+                      * Chức năng Gửi Telegram chỉ khả dụng khi Tổng kết trong 1 ngày duy nhất.
+                    </p>
+                  )}
+                </>
               )}
+
+              {/* BIỂU ĐỒ DOANH THU */}
+              <div className="chart-container">
+                <div className="chart-header">
+                  <span className="chart-title">📊 Biểu đồ Doanh Thu</span>
+                  <select 
+                    className="form-control" 
+                    style={{ width: '130px', padding: '6px', fontSize: '13px' }}
+                    value={chartDays}
+                    onChange={(e) => setChartDays(e.target.value)}
+                  >
+                    <option value="7">7 ngày qua</option>
+                    <option value="14">14 ngày qua</option>
+                    <option value="30">30 ngày qua</option>
+                  </select>
+                </div>
+                
+                {chartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="80%">
+                    <BarChart data={chartData}>
+                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickMargin={10} />
+                      <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} width={50} tickFormatter={(value) => `${value/1000}k`} />
+                      <Tooltip formatter={(value: number) => value.toLocaleString('vi-VN') + ' đ'} />
+                      <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                      <Bar dataKey="thu" name="Tổng Thu" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="chi" name="Tổng Chi" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                    Đang tải dữ liệu biểu đồ...
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

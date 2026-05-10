@@ -326,3 +326,58 @@ textarea.form-control { min-height: 80px; resize: vertical; }
 ::-webkit-scrollbar-track { background: var(--bg-color); }
 ::-webkit-scrollbar-thumb { background: var(--input-border); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+/* Login Screen */
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 20px;
+}
+
+.lock-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Chart Container */
+.chart-container {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
+  padding: 16px 16px 16px 0;
+  margin-top: 24px;
+  height: 300px;
+  width: 100%;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  margin-left: 16px;
+}
+
+.chart-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.recharts-default-tooltip {
+  background-color: var(--form-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(10px) !important;
+  color: var(--text-primary) !important;
+}
