@@ -4,9 +4,9 @@ import { google } from 'googleapis';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { stt, type, amount, description, staff } = body;
+    const { stt, type, shift, paymentMethod, amount, description, staff } = body;
 
-    if (!type || !amount || !description || !staff) {
+    if (!type || !shift || !paymentMethod || !amount || !description || !staff) {
       return NextResponse.json({ error: 'Vui lòng điền đầy đủ thông tin bắt buộc' }, { status: 400 });
     }
 
@@ -45,11 +45,11 @@ export async function POST(request: Request) {
 
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: `'${sheetName}'!A:G`, // Adjust if your sheet name is different
+          range: `'${sheetName}'!A:I`,
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [
-              [stt, dateString, timeString, type, realAmount, description, staff],
+              [stt, dateString, timeString, shift, type, paymentMethod, realAmount, description, staff],
             ],
           },
         });
@@ -67,8 +67,10 @@ export async function POST(request: Request) {
       const sttText = stt ? `\n🏷 STT: ${stt}` : '';
       const message = `
 🏥 *Thông báo ${type} mới*${sttText}
-⏰ Thời gian: ${dateString} ${timeString}
+⏰ Thời gian: ${timeString} - ${dateString}
+🏷 Ca làm việc: ${shift}
 💰 Số tiền: *${realAmount.toLocaleString('vi-VN')} VNĐ*
+💳 Hình thức: ${paymentMethod}
 📝 Nội dung: ${description}
 👤 Nhân viên: ${staff}
       `;

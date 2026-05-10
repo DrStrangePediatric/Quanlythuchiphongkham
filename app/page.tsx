@@ -9,10 +9,26 @@ export default function Home() {
   
   // Nhập liệu state
   const [type, setType] = useState('Thu');
+  const [shift, setShift] = useState('Sáng');
+  const [isTransfer, setIsTransfer] = useState(false);
   const [amount, setAmount] = useState('');
   
   // Tổng kết state
-  const [summaryData, setSummaryData] = useState<{thu: number, chi: number} | null>(null);
+  const [summaryData, setSummaryData] = useState<{
+    thuTM: number, thuCK: number, chiTM: number, chiCK: number
+  } | null>(null);
+  
+  // Lấy ngày hôm nay định dạng YYYY-MM-DD cho input type="date"
+  const getTodayStr = () => {
+    const d = new Date();
+    // Chỉnh múi giờ việt nam
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().split('T')[0];
+  };
+
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
+  const [summaryShift, setSummaryShift] = useState('Tất cả');
   const [salary, setSalary] = useState('');
 
   const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150];
@@ -26,7 +42,9 @@ export default function Home() {
     const data = {
       stt: formData.get('stt') || '',
       type: type,
-      amount: formData.get('amount'), // Ví dụ: "70"
+      shift: shift,
+      paymentMethod: isTransfer ? 'Chuyển khoản' : 'Tiền mặt',
+      amount: formData.get('amount'), 
       description: formData.get('description'),
       staff: formData.get('staff'),
     };
@@ -44,6 +62,7 @@ export default function Home() {
         setMessage({ type: 'success', text: 'Đã lưu dữ liệu thành công!' });
         (e.target as HTMLFormElement).reset();
         setAmount('');
+        setIsTransfer(false);
       } else {
         setMessage({ type: 'error', text: result.error || 'Có lỗi xảy ra, vui lòng thử lại.' });
       }
@@ -58,11 +77,20 @@ export default function Home() {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/summary');
+      // Chuyển format YYYY-MM-DD sang DD/MM/YYYY để gửi API
+      const formatToVN = (d: string) => d ? d.split('-').reverse().join('/') : '';
+      
+      const query = new URLSearchParams({
+        startDate: formatToVN(startDate),
+        endDate: formatToVN(endDate),
+        shift: summaryShift
+      });
+
+      const res = await fetch(`/api/summary?${query.toString()}`);
       const data = await res.json();
       if (res.ok) {
-        setSummaryData({ thu: data.thu, chi: data.chi });
-        setMessage({ type: 'success', text: 'Đã lấy số liệu hôm nay thành công.' });
+        setSummaryData(data);
+        setMessage({ type: 'success', text: 'Đã lấy số liệu thành công.' });
       } else {
         setMessage({ type: 'error', text: data.error || 'Lỗi lấy số liệu' });
       }
@@ -80,16 +108,24 @@ export default function Home() {
     setMessage(null);
     
     const salaryNum = parseInt(salary) || 0;
-    // Tổng còn lại = Tổng Thu - Tổng Chi - Lương
-    const remaining = summaryData.thu - summaryData.chi - (salaryNum * 1000);
+    const totalThu = summaryData.thuTM + summaryData.thuCK;
+    const totalChi = summaryData.chiTM + summaryData.chiCK;
+    const remaining = totalThu - totalChi - (salaryNum * 1000);
+
+    const formatToVN = (d: string) => d.split('-').reverse().join('/');
 
     try {
       const res = await fetch('/api/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          thu: summaryData.thu,
-          chi: summaryData.chi,
+          startDate: formatToVN(startDate),
+          endDate: formatToVN(endDate),
+          shift: summaryShift,
+          thuTM: summaryData.thuTM,
+          thuCK: summaryData.thuCK,
+          chiTM: summaryData.chiTM,
+          chiCK: summaryData.chiCK,
           salary: salaryNum * 1000,
           remaining: remaining
         })
@@ -126,7 +162,7 @@ export default function Home() {
           className={`tab-btn ${activeTab === 'tongket' ? 'active' : ''}`}
           onClick={() => {setActiveTab('tongket'); setMessage(null)}}
         >
-          Tổng kết ngày
+          Tổng kết & Báo cáo
         </button>
       </div>
 
@@ -157,14 +193,23 @@ export default function Home() {
           </div>
 
           <div className="form-group">
+            <label>Ca làm việc</label>
+            <div className="radio-group">
+              <label className="radio-label">
+                <input type="radio" checked={shift === 'Sáng'} onChange={() => setShift('Sáng')} /> Sáng
+              </label>
+              <label className="radio-label">
+                <input type="radio" checked={shift === 'Trưa'} onChange={() => setShift('Trưa')} /> Trưa
+              </label>
+              <label className="radio-label">
+                <input type="radio" checked={shift === 'Chiều'} onChange={() => setShift('Chiều')} /> Chiều
+              </label>
+            </div>
+          </div>
+
+          <div className="form-group">
             <label htmlFor="stt">Số thứ tự (Phiếu khám)</label>
-            <input
-              type="text"
-              id="stt"
-              name="stt"
-              className="form-control"
-              placeholder="VD: 01, 02... (nếu có)"
-            />
+            <input type="text" id="stt" name="stt" className="form-control" placeholder="VD: 01, 02... (nếu có)" />
           </div>
 
           <div className="form-group">
@@ -173,12 +218,7 @@ export default function Home() {
             {type === 'Thu' && (
               <div className="quick-buttons">
                 {quickAmounts.map(val => (
-                  <button 
-                    key={val} 
-                    type="button" 
-                    className="quick-btn"
-                    onClick={() => setAmount(val.toString())}
-                  >
+                  <button key={val} type="button" className="quick-btn" onClick={() => setAmount(val.toString())}>
                     {val}k
                   </button>
                 ))}
@@ -186,39 +226,27 @@ export default function Home() {
             )}
             
             <input
-              type="number"
-              id="amount"
-              name="amount"
-              className="form-control"
-              placeholder="VD: 70 (tương đương 70.000đ)"
-              required
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              type="number" id="amount" name="amount" className="form-control"
+              placeholder="VD: 70 (tương đương 70.000đ)" required min="0"
+              value={amount} onChange={(e) => setAmount(e.target.value)}
             />
+
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
+                💳 Khách chuyển khoản ngân hàng
+              </label>
+            </div>
           </div>
 
           <div className="form-group">
             <label htmlFor="description">Lý do / Nội dung</label>
-            <textarea
-              id="description"
-              name="description"
-              className="form-control"
-              placeholder="Khám bệnh cho bé..."
-              required
-            ></textarea>
+            <textarea id="description" name="description" className="form-control" placeholder="Khám bệnh cho bé..." required></textarea>
           </div>
 
           <div className="form-group">
             <label htmlFor="staff">Tên nhân viên nhập liệu</label>
-            <input
-              type="text"
-              id="staff"
-              name="staff"
-              className="form-control"
-              placeholder="VD: Điều dưỡng B"
-              required
-            />
+            <input type="text" id="staff" name="staff" className="form-control" placeholder="VD: Điều dưỡng B" required />
           </div>
 
           <button type="submit" className="btn-submit" disabled={loading}>
@@ -227,24 +255,49 @@ export default function Home() {
         </form>
       ) : (
         <div>
-          <button 
-            className="btn-submit btn-fetch" 
-            onClick={fetchSummary}
-            disabled={loading}
-          >
-            {loading ? 'Đang tải...' : 'Lấy số liệu hôm nay'}
+          <div className="grid-2">
+            <div className="form-group">
+              <label>Từ ngày</label>
+              <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Đến ngày</label>
+              <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Lọc theo Ca</label>
+            <select className="form-control" value={summaryShift} onChange={(e) => setSummaryShift(e.target.value)}>
+              <option value="Tất cả">Tất cả các ca</option>
+              <option value="Sáng">Ca Sáng</option>
+              <option value="Trưa">Ca Trưa</option>
+              <option value="Chiều">Ca Chiều</option>
+            </select>
+          </div>
+
+          <button className="btn-submit btn-fetch" onClick={fetchSummary} disabled={loading}>
+            {loading ? 'Đang tải...' : 'Lấy số liệu'}
           </button>
 
           {summaryData && (
             <>
               <div className="summary-card">
                 <div className="summary-row">
-                  <span>Tổng Thu:</span>
-                  <span className="text-success">{(summaryData.thu).toLocaleString('vi-VN')} đ</span>
+                  <span>Thu Tiền Mặt:</span>
+                  <span className="text-success">{(summaryData.thuTM).toLocaleString('vi-VN')} đ</span>
                 </div>
                 <div className="summary-row">
-                  <span>Tổng Chi:</span>
-                  <span className="text-danger">{(summaryData.chi).toLocaleString('vi-VN')} đ</span>
+                  <span>Thu Chuyển Khoản:</span>
+                  <span className="text-success">{(summaryData.thuCK).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="summary-row" style={{marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+                  <span>Chi Tiền Mặt:</span>
+                  <span className="text-danger">{(summaryData.chiTM).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="summary-row">
+                  <span>Chi Chuyển Khoản:</span>
+                  <span className="text-danger">{(summaryData.chiCK).toLocaleString('vi-VN')} đ</span>
                 </div>
                 
                 <div className="form-group" style={{marginTop: '16px'}}>
@@ -261,18 +314,20 @@ export default function Home() {
                 <div className="summary-row total">
                   <span>TỔNG CÒN LẠI:</span>
                   <span>
-                    {(summaryData.thu - summaryData.chi - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
+                    {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
               </div>
 
-              <button 
-                className="btn-submit btn-danger" 
-                onClick={handleEndDay}
-                disabled={loading}
-              >
-                {loading ? 'Đang gửi...' : 'Chốt sổ & Gửi Telegram'}
-              </button>
+              {startDate === endDate ? (
+                <button className="btn-submit btn-danger" onClick={handleEndDay} disabled={loading}>
+                  {loading ? 'Đang gửi...' : `Chốt sổ & Gửi Telegram (${summaryShift === 'Tất cả' ? 'Cả ngày' : 'Ca ' + summaryShift})`}
+                </button>
+              ) : (
+                <p style={{textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)'}}>
+                  * Chức năng Gửi Telegram chỉ khả dụng khi Tổng kết trong 1 ngày duy nhất.
+                </p>
+              )}
             </>
           )}
         </div>

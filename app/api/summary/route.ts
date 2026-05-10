@@ -15,8 +15,27 @@ const getAuth = () => {
   });
 };
 
-export async function GET() {
+// Hàm so sánh ngày DD/MM/YYYY
+const parseDateString = (dateStr: string) => {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    // parts[0]: DD, parts[1]: MM, parts[2]: YYYY
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+  }
+  return 0;
+};
+
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate'); // DD/MM/YYYY
+    const endDate = searchParams.get('endDate'); // DD/MM/YYYY
+    const shiftFilter = searchParams.get('shift') || 'Tất cả';
+
+    const startTimestamp = startDate ? parseDateString(startDate) : 0;
+    const endTimestamp = endDate ? parseDateString(endDate) : Number.MAX_SAFE_INTEGER;
+
     const auth = getAuth();
     const sheets = google.sheets({ version: 'v4', auth });
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -36,46 +55,64 @@ export async function GET() {
       return NextResponse.json({ error: 'Lỗi không tìm thấy file Google Sheet' }, { status: 404 });
     }
 
-    // Đọc toàn bộ dữ liệu từ Sheet
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
-      range: `'${sheetName}'!A:E`, // Đọc cột Ngày (A) đến Cột Số Tiền (E)
+      range: `'${sheetName}'!A:G`, // Đọc đến cột G (Số tiền ở format mới)
     });
 
     const rows = response.data.values || [];
-    const now = new Date();
-    const todayString = now.toLocaleDateString('vi-VN');
 
-    let totalThu = 0;
-    let totalChi = 0;
+    let thuTM = 0;
+    let thuCK = 0;
+    let chiTM = 0;
+    let chiCK = 0;
 
-    // Bỏ qua dòng tiêu đề (index 0) nếu có
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
-      // row[0] là STT, row[1] là Ngày, row[3] là Loại, row[4] là Số Tiền
-      // A (0) = STT
-      // B (1) = Ngày
-      // C (2) = Giờ
-      // D (3) = Loại
-      // E (4) = Số tiền
-      
-      const rowDate = row[1];
-      const type = row[3];
-      const amountStr = row[4];
+      const rowDateStr = row[1]; // B (1) = Ngày
+      const rowTimestamp = parseDateString(rowDateStr);
 
-      if (rowDate === todayString) {
-        // Loại bỏ dấu phẩy/chấm nếu có trong số tiền và chuyển thành số
-        const amount = parseInt(amountStr?.replace(/[,.]/g, '') || '0');
-        
-        if (type === 'Thu') {
-          totalThu += amount;
-        } else if (type === 'Chi') {
-          totalChi += amount;
-        }
+      // Nếu có lọc ngày, kiểm tra xem giao dịch có nằm trong khoảng ngày không
+      if (startTimestamp > 0 && rowTimestamp < startTimestamp) continue;
+      if (endTimestamp < Number.MAX_SAFE_INTEGER && rowTimestamp > endTimestamp) continue;
+
+      let rowShift = '';
+      let type = '';
+      let paymentMethod = 'Tiền mặt'; // Mặc định cũ
+      let amountStr = '0';
+
+      // Xử lý tương thích ngược (Cũ vs Mới)
+      if (row[3] === 'Thu' || row[3] === 'Chi') {
+        // Định dạng cũ: STT | Ngày | Giờ | Loại | Số tiền
+        type = row[3];
+        amountStr = row[4];
+      } else if (row[4] === 'Thu' || row[4] === 'Chi') {
+        // Định dạng mới: STT | Ngày | Giờ | Ca | Loại | Hình thức | Số tiền
+        rowShift = row[3];
+        type = row[4];
+        paymentMethod = row[5];
+        amountStr = row[6];
+      } else {
+        continue; // Dòng không hợp lệ
+      }
+
+      // Lọc theo ca
+      if (shiftFilter !== 'Tất cả' && rowShift && rowShift !== shiftFilter) {
+        continue;
+      }
+
+      const amount = parseInt(amountStr?.replace(/[,.]/g, '') || '0');
+      
+      if (type === 'Thu') {
+        if (paymentMethod === 'Chuyển khoản') thuCK += amount;
+        else thuTM += amount;
+      } else if (type === 'Chi') {
+        if (paymentMethod === 'Chuyển khoản') chiCK += amount;
+        else chiTM += amount;
       }
     }
 
-    return NextResponse.json({ thu: totalThu, chi: totalChi });
+    return NextResponse.json({ thuTM, thuCK, chiTM, chiCK });
   } catch (error) {
     console.error('Summary GET Error:', error);
     return NextResponse.json({ error: 'Lỗi khi đọc dữ liệu từ Sheet' }, { status: 500 });
@@ -85,7 +122,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { thu, chi, salary, remaining } = body;
+    const { startDate, endDate, shift, thuTM, thuCK, chiTM, chiCK, salary, remaining } = body;
 
     const auth = getAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -96,19 +133,22 @@ export async function POST(request: Request) {
 
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
     
-    // 1. Lưu dòng TỔNG KẾT vào Google Sheet
-    if (spreadsheetId) {
+    // Chỉ lưu Google Sheet TỔNG KẾT nếu là báo cáo cuối ngày của nguyên ngày
+    if (spreadsheetId && startDate === endDate && shift === 'Tất cả') {
       try {
         const meta = await sheets.spreadsheets.get({ spreadsheetId });
         const sheetName = meta.data.sheets?.[0]?.properties?.title || 'Trang tính 1';
 
+        const totalThu = thuTM + thuCK;
+        const totalChi = chiTM + chiCK;
+
         await sheets.spreadsheets.values.append({
           spreadsheetId,
-          range: `'${sheetName}'!A:G`,
+          range: `'${sheetName}'!A:I`,
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [
-              ['', dateString, timeString, 'TỔNG KẾT', '', `Thu: ${thu.toLocaleString('vi-VN')} | Chi: ${chi.toLocaleString('vi-VN')} | Lương: ${salary.toLocaleString('vi-VN')} | DƯ: ${remaining.toLocaleString('vi-VN')}`, 'HỆ THỐNG'],
+              ['', dateString, timeString, '', 'TỔNG KẾT', '', `Thu: ${totalThu} | Chi: ${totalChi} | Lương: ${salary} | DƯ: ${remaining}`, 'HỆ THỐNG', ''],
             ],
           },
         });
@@ -122,14 +162,31 @@ export async function POST(request: Request) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
 
     if (botToken && chatId) {
+      let reportTitle = `TỔNG KẾT NGÀY ${startDate}`;
+      if (startDate !== endDate) {
+        reportTitle = `TỔNG KẾT (${startDate} - ${endDate})`;
+      } else if (shift !== 'Tất cả') {
+        reportTitle = `TỔNG KẾT CA ${shift.toUpperCase()} (${startDate})`;
+      }
+
+      const totalThu = thuTM + thuCK;
+      const totalChi = chiTM + chiCK;
+
       const message = `
-📊 *TỔNG KẾT NGÀY ${dateString}*
+📊 *${reportTitle}*
 --------------------------
-📈 Tổng Thu: *${thu.toLocaleString('vi-VN')} VNĐ*
-📉 Tổng Chi: *${chi.toLocaleString('vi-VN')} VNĐ*
-💸 Lương NV: *${salary.toLocaleString('vi-VN')} VNĐ*
+📈 *TỔNG THU: ${totalThu.toLocaleString('vi-VN')}*
+   💵 Tiền mặt: ${thuTM.toLocaleString('vi-VN')}
+   💳 Chuyển khoản: ${thuCK.toLocaleString('vi-VN')}
+
+📉 *TỔNG CHI: ${totalChi.toLocaleString('vi-VN')}*
+   💵 Tiền mặt: ${chiTM.toLocaleString('vi-VN')}
+   💳 Chuyển khoản: ${chiCK.toLocaleString('vi-VN')}
+
+💸 Lương NV: *${salary.toLocaleString('vi-VN')}*
 --------------------------
-💵 *CÒN LẠI: ${remaining.toLocaleString('vi-VN')} VNĐ*
+💰 *DƯ TRONG KÉT: ${remaining.toLocaleString('vi-VN')}*
+_(Chỉ là số dư tính toán trên phần mềm)_
       `;
 
       try {
