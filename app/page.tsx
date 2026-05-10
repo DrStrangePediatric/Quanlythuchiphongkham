@@ -381,12 +381,99 @@ export default function Home() {
       ) : (
         // Tab Tổng Kết & Báo cáo
         <div>
+          {/* Vùng chọn Ngày: Chỉ Admin mới được chọn ngày tùy ý. Nhân viên bị khóa ở ngày hôm nay */}
+          {authStatus === 'admin' ? (
+            <div className="grid-2">
+              <div className="form-group">
+                <label>Từ ngày</label>
+                <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Đến ngày</label>
+                <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>Ngày báo cáo</label>
+              <input type="date" className="form-control" value={startDate} disabled style={{ opacity: 0.8 }} />
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                * Nhân viên chỉ được xem và chốt sổ dữ liệu của ngày hôm nay.
+              </p>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label>Lọc theo Ca</label>
+            <select className="form-control" value={summaryShift} onChange={(e) => setSummaryShift(e.target.value)}>
+              <option value="Tất cả">Tất cả các ca</option>
+              <option value="Sáng">Ca Sáng</option>
+              <option value="Trưa">Ca Trưa</option>
+              <option value="Chiều">Ca Chiều</option>
+            </select>
+          </div>
+
+          <button className="btn-submit btn-fetch" onClick={fetchSummary} disabled={loading}>
+            {loading ? 'Đang tải...' : 'Lấy số liệu'}
+          </button>
+
+          {summaryData && (
+            <>
+              <div className="summary-card">
+                <div className="summary-row">
+                  <span>Thu Tiền Mặt:</span>
+                  <span className="text-success">{(summaryData.thuTM).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="summary-row">
+                  <span>Thu Chuyển Khoản:</span>
+                  <span className="text-success">{(summaryData.thuCK).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="summary-row" style={{marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
+                  <span>Chi Tiền Mặt:</span>
+                  <span className="text-danger">{(summaryData.chiTM).toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="summary-row">
+                  <span>Chi Chuyển Khoản:</span>
+                  <span className="text-danger">{(summaryData.chiCK).toLocaleString('vi-VN')} đ</span>
+                </div>
+                
+                <div className="form-group" style={{marginTop: '16px'}}>
+                  <label>Nhập Lương nhân viên (Nghìn VNĐ)</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="VD: 200 (tương đương 200.000đ)"
+                    value={salary}
+                    onChange={(e) => setSalary(e.target.value)}
+                  />
+                </div>
+
+                <div className="summary-row total">
+                  <span>TỔNG CÒN LẠI:</span>
+                  <span>
+                    {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
+                  </span>
+                </div>
+              </div>
+
+              {startDate === endDate ? (
+                <button className="btn-submit btn-danger" onClick={handleEndDay} disabled={loading}>
+                  {loading ? 'Đang gửi...' : `Chốt sổ & Gửi Telegram (${summaryShift === 'Tất cả' ? 'Cả ngày' : 'Ca ' + summaryShift})`}
+                </button>
+              ) : (
+                <p style={{textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)'}}>
+                  * Chức năng Gửi Telegram chỉ khả dụng khi Tổng kết trong 1 ngày duy nhất.
+                </p>
+              )}
+            </>
+          )}
+
+          {/* BIỂU ĐỒ VÀ BÁO CÁO NÂNG CAO (CHỈ ADMIN) */}
           {authStatus !== 'admin' ? (
-            // Form yêu cầu mật khẩu Admin
-            <div className="login-container" style={{ minHeight: '30vh' }}>
-              <div className="lock-icon" style={{ fontSize: '32px' }}>🔐</div>
-              <p style={{ marginBottom: '20px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Khu vực Quản lý. Vui lòng nhập mật khẩu Admin để xem Báo cáo và Biểu đồ.
+            <div className="login-container" style={{ minHeight: 'auto', marginTop: '30px', borderTop: '1px solid var(--input-border)', paddingTop: '20px' }}>
+              <div className="lock-icon" style={{ fontSize: '24px', marginBottom: '10px' }}>🔐</div>
+              <p style={{ marginBottom: '16px', color: 'var(--text-secondary)', textAlign: 'center', fontSize: '14px' }}>
+                Nhập mật khẩu Admin để mở khóa Biểu đồ và chọn khoảng ngày.
               </p>
               <form className="login-form" onSubmit={(e) => handleLogin(e, 'admin')}>
                 <input 
@@ -397,124 +484,44 @@ export default function Home() {
                   onChange={(e) => setPasswordInput(e.target.value)}
                   required
                 />
-                <button type="submit" className="btn-submit" disabled={loading}>
-                  {loading ? 'Đang mở khóa...' : 'Mở khóa báo cáo'}
+                <button type="submit" className="btn-submit" disabled={loading} style={{ padding: '10px', fontSize: '14px' }}>
+                  {loading ? 'Đang mở...' : 'Mở khóa nâng cao'}
                 </button>
               </form>
             </div>
           ) : (
-            // Đã mở khóa Admin -> Hiển thị Báo cáo và Biểu đồ
-            <>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label>Từ ngày</label>
-                  <input type="date" className="form-control" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>Đến ngày</label>
-                  <input type="date" className="form-control" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Lọc theo Ca</label>
-                <select className="form-control" value={summaryShift} onChange={(e) => setSummaryShift(e.target.value)}>
-                  <option value="Tất cả">Tất cả các ca</option>
-                  <option value="Sáng">Ca Sáng</option>
-                  <option value="Trưa">Ca Trưa</option>
-                  <option value="Chiều">Ca Chiều</option>
+            <div className="chart-container">
+              <div className="chart-header">
+                <span className="chart-title">📊 Biểu đồ Doanh Thu</span>
+                <select 
+                  className="form-control" 
+                  style={{ width: '130px', padding: '6px', fontSize: '13px' }}
+                  value={chartDays}
+                  onChange={(e) => setChartDays(e.target.value)}
+                >
+                  <option value="7">7 ngày qua</option>
+                  <option value="14">14 ngày qua</option>
+                  <option value="30">30 ngày qua</option>
                 </select>
               </div>
-
-              <button className="btn-submit btn-fetch" onClick={fetchSummary} disabled={loading}>
-                {loading ? 'Đang tải...' : 'Lấy số liệu'}
-              </button>
-
-              {summaryData && (
-                <>
-                  <div className="summary-card">
-                    <div className="summary-row">
-                      <span>Thu Tiền Mặt:</span>
-                      <span className="text-success">{(summaryData.thuTM).toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    <div className="summary-row">
-                      <span>Thu Chuyển Khoản:</span>
-                      <span className="text-success">{(summaryData.thuCK).toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    <div className="summary-row" style={{marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)'}}>
-                      <span>Chi Tiền Mặt:</span>
-                      <span className="text-danger">{(summaryData.chiTM).toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    <div className="summary-row">
-                      <span>Chi Chuyển Khoản:</span>
-                      <span className="text-danger">{(summaryData.chiCK).toLocaleString('vi-VN')} đ</span>
-                    </div>
-                    
-                    <div className="form-group" style={{marginTop: '16px'}}>
-                      <label>Nhập Lương nhân viên (Nghìn VNĐ)</label>
-                      <input
-                        type="number"
-                        className="form-control"
-                        placeholder="VD: 200 (tương đương 200.000đ)"
-                        value={salary}
-                        onChange={(e) => setSalary(e.target.value)}
-                      />
-                    </div>
-
-                    <div className="summary-row total">
-                      <span>TỔNG CÒN LẠI:</span>
-                      <span>
-                        {(summaryData.thuTM + summaryData.thuCK - summaryData.chiTM - summaryData.chiCK - ((parseInt(salary)||0) * 1000)).toLocaleString('vi-VN')} đ
-                      </span>
-                    </div>
-                  </div>
-
-                  {startDate === endDate ? (
-                    <button className="btn-submit btn-danger" onClick={handleEndDay} disabled={loading}>
-                      {loading ? 'Đang gửi...' : `Chốt sổ & Gửi Telegram (${summaryShift === 'Tất cả' ? 'Cả ngày' : 'Ca ' + summaryShift})`}
-                    </button>
-                  ) : (
-                    <p style={{textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)'}}>
-                      * Chức năng Gửi Telegram chỉ khả dụng khi Tổng kết trong 1 ngày duy nhất.
-                    </p>
-                  )}
-                </>
-              )}
-
-              {/* BIỂU ĐỒ DOANH THU */}
-              <div className="chart-container">
-                <div className="chart-header">
-                  <span className="chart-title">📊 Biểu đồ Doanh Thu</span>
-                  <select 
-                    className="form-control" 
-                    style={{ width: '130px', padding: '6px', fontSize: '13px' }}
-                    value={chartDays}
-                    onChange={(e) => setChartDays(e.target.value)}
-                  >
-                    <option value="7">7 ngày qua</option>
-                    <option value="14">14 ngày qua</option>
-                    <option value="30">30 ngày qua</option>
-                  </select>
+              
+              {chartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="80%">
+                  <BarChart data={chartData}>
+                    <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickMargin={10} />
+                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} width={50} tickFormatter={(value) => `${value/1000}k`} />
+                    <Tooltip formatter={(value: number) => value.toLocaleString('vi-VN') + ' đ'} />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                    <Bar dataKey="thu" name="Tổng Thu" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="chi" name="Tổng Chi" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                  Đang tải dữ liệu biểu đồ...
                 </div>
-                
-                {chartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="80%">
-                    <BarChart data={chartData}>
-                      <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickMargin={10} />
-                      <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} width={50} tickFormatter={(value) => `${value/1000}k`} />
-                      <Tooltip formatter={(value: number) => value.toLocaleString('vi-VN') + ' đ'} />
-                      <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                      <Bar dataKey="thu" name="Tổng Thu" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="chi" name="Tổng Chi" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div style={{ height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-                    Đang tải dữ liệu biểu đồ...
-                  </div>
-                )}
-              </div>
-            </>
+              )}
+            </div>
           )}
         </div>
       )}
