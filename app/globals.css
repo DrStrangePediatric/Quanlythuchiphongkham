@@ -381,3 +381,37 @@ textarea.form-control { min-height: 80px; resize: vertical; }
   backdrop-filter: blur(10px) !important;
   color: var(--text-primary) !important;
 }
+
+/* Giao diện siêu gọn cho App thu nhỏ */
+@media (max-width: 500px) {
+  body {
+    padding: 0;
+    align-items: flex-start;
+  }
+  
+  .container {
+    padding: 16px;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    min-height: 100vh;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-control {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .quick-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .radio-group {
+    gap: 12px;
+  }
+}
