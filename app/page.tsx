@@ -37,11 +37,19 @@ export default function Home() {
   const [summaryShift, setSummaryShift] = useState('Tất cả');
   const [salary, setSalary] = useState('');
 
-  // Biểu đồ state
   const [chartData, setChartData] = useState<any[]>([]);
   const [chartDays, setChartDays] = useState('7');
 
+  const [isElectron, setIsElectron] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
   const quickAmounts = [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+      setIsElectron(true);
+    }
+  }, []);
 
   useEffect(() => {
     // Kiểm tra trạng thái đăng nhập đã lưu
@@ -252,12 +260,26 @@ export default function Home() {
       <div className="header" style={{ position: 'relative' }}>
         <h1>Quản Lý Thu Chi</h1>
         <p>Phòng Khám Nhi</p>
-        <button 
-          onClick={handleLogout}
-          style={{ position: 'absolute', right: 0, top: 0, background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}
-        >
-          Đăng xuất
-        </button>
+        <div style={{ position: 'absolute', right: 0, top: 0, display: 'flex', gap: '10px' }}>
+          {isElectron && (
+            <button 
+              onClick={async () => {
+                const newState = await (window as any).electronAPI.togglePin();
+                setIsPinned(newState);
+              }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', opacity: isPinned ? 1 : 0.5, filter: isPinned ? 'drop-shadow(0 0 5px rgba(255,255,255,0.5))' : 'none' }}
+              title="Ghim cửa sổ"
+            >
+              📌
+            </button>
+          )}
+          <button 
+            onClick={handleLogout}
+            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline' }}
+          >
+            Đăng xuất
+          </button>
+        </div>
       </div>
 
       <div className="tabs">
