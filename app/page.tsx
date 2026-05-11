@@ -306,40 +306,6 @@ export default function Home() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="stt">Số thứ tự (Phiếu khám)</label>
-            <input type="text" id="stt" name="stt" className="form-control" placeholder="VD: 01, 02... (nếu có)" />
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="amount">Số tiền (Nghìn VNĐ)</label>
-            {type === 'Thu' && (
-              <div className="quick-buttons">
-                {quickAmounts.map(val => (
-                  <button key={val} type="button" className="quick-btn" onClick={() => setAmount(val.toString())}>
-                    {val}k
-                  </button>
-                ))}
-              </div>
-            )}
-            <input
-              type="number" id="amount" name="amount" className="form-control"
-              placeholder="VD: 70 (tương đương 70.000đ)" required min="0"
-              value={amount} onChange={(e) => setAmount(e.target.value)}
-            />
-            <div className="checkbox-group">
-              <label className="checkbox-label">
-                <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
-                💳 Khách chuyển khoản ngân hàng
-              </label>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="description">Lý do / Nội dung (Không bắt buộc)</label>
-            <textarea id="description" name="description" className="form-control" placeholder="Ghi chú thêm nếu cần..."></textarea>
-          </div>
-
-          <div className="form-group">
             <label>Nhân viên nhập liệu</label>
             <div className="radio-group" style={{ marginBottom: selectedStaff === 'Khác' ? '10px' : '0' }}>
               {['Dương', 'Trúc', 'Kiều', 'Trinh', 'Khác'].map((name) => (
@@ -372,6 +338,40 @@ export default function Home() {
             ) : (
               <input type="hidden" name="staff" value={selectedStaff} />
             )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="stt">Số thứ tự (Phiếu khám)</label>
+            <input type="text" id="stt" name="stt" className="form-control" placeholder="VD: 01, 02... (nếu có)" />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="amount">Số tiền (Nghìn VNĐ)</label>
+            {type === 'Thu' && (
+              <div className="quick-buttons">
+                {quickAmounts.map(val => (
+                  <button key={val} type="button" className="quick-btn" onClick={() => setAmount(val.toString())}>
+                    {val}k
+                  </button>
+                ))}
+              </div>
+            )}
+            <input
+              type="number" id="amount" name="amount" className="form-control"
+              placeholder="VD: 70 (tương đương 70.000đ)" required min="0"
+              value={amount} onChange={(e) => setAmount(e.target.value)}
+            />
+            <div className="checkbox-group">
+              <label className="checkbox-label">
+                <input type="checkbox" checked={isTransfer} onChange={(e) => setIsTransfer(e.target.checked)} />
+                💳 Khách chuyển khoản ngân hàng
+              </label>
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="description">Lý do / Nội dung (Không bắt buộc)</label>
+            <textarea id="description" name="description" className="form-control" placeholder="Ghi chú thêm nếu cần..."></textarea>
           </div>
 
           <button type="submit" className="btn-submit" disabled={loading}>
