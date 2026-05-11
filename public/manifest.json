@@ -1,0 +1,16 @@
+{
+  "name": "Quản lý Thu Chi Phòng Khám",
+  "short_name": "Thu Chi PK",
+  "description": "Phần mềm quản lý thu chi phòng khám",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2936/2936746.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Quản lý Thu Chi Phòng Khám',
   description: 'Hệ thống nhập liệu thu chi hàng ngày cho phòng khám',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
